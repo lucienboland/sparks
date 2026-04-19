@@ -32,6 +32,18 @@ sparks list             List available personas
 sparks help             Full command reference
 ```
 
+## Supported AI tools
+
+| Tool | Context file | Sync mechanism |
+|------|-------------|----------------|
+| OpenCode | `AGENTS.md` | Sentinel block (direct content) |
+| Claude Code | `CLAUDE.md` | Bootstrap: `@AGENTS.md` import |
+| GitHub Copilot | `.github/copilot-instructions.md` | Sentinel block |
+| Gemini CLI | `AGENTS.md` (via settings.json) | Native file discovery |
+| Gemini CLI (standalone) | `GEMINI.md` | Sentinel block |
+
+See `INSTALL.md` for Gemini CLI one-time setup.
+
 ## Development
 
 ```bash
