@@ -145,7 +145,7 @@ _sparks_doctor() {
       _sparks_dr_err "adapter: ${adapter}" "unknown adapter name"
       continue
     fi
-    local adapter_file="${_SPARKS_PLUGIN_DIR}/adapters/${adapter}.bash"
+    local adapter_file="${_SPARKS_HOME}/adapters/${adapter}.bash"
     if [[ -f "${adapter_file}" ]]; then
       _sparks_dr_ok "adapter: ${adapter}" "${adapter_file/#${HOME}/\~}"
     else
