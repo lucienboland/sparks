@@ -224,4 +224,148 @@ _should_run "deploy" && {
   _cleanup_tmpenv
 }
 
+_should_run "status" && {
+  _section "status - no install"
+  _make_tmpenv
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  exit_code=$?
+  _assert_exit "status exits 1 with no install" "$exit_code" "1"
+  _assert_contains "reports missing install dir" "$output" "[missing]"
+  _assert_contains "suggests install command" "$output" "./install.sh"
+  _cleanup_tmpenv
+
+  _section "status - current install (no drift)"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports ok for install dir" "$output" "[ok]"
+  if [[ "$output" != *"[drift]"* ]]; then
+    _ok "no drift on fresh deploy"
+  else
+    _fail "drift reported on just-deployed install"
+  fi
+  _cleanup_tmpenv
+
+  _section "status - drifted install"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  sed -i.bak 's/^commit=.*/commit=0000000000000000000000000000000000000000/' \
+    "${SPARKS_INSTALL_DIR}/VERSION"
+  rm -f "${SPARKS_INSTALL_DIR}/VERSION.bak"
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  exit_code=$?
+  _assert_exit "status exits 1 on drift" "$exit_code" "1"
+  _assert_contains "reports drift" "$output" "[drift]"
+  _assert_contains "drift suggests deploy" "$output" "./install.sh"
+  _cleanup_tmpenv
+
+  _section "status - missing VERSION stamp"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  rm "${SPARKS_INSTALL_DIR}/VERSION"
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  exit_code=$?
+  _assert_exit "status exits 1 on missing VERSION" "$exit_code" "1"
+  _assert_contains "reports warn for missing VERSION" "$output" "[warn]"
+  _cleanup_tmpenv
+
+  _section "status - missing config dir"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports missing config dir" "$output" "[missing]"
+  _assert_contains "suggests mkdir" "$output" "mkdir -p"
+  _cleanup_tmpenv
+
+  _section "status - missing personas dir"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  mkdir -p "${SPARKS_CONFIG_DIR}"
+  touch "${SPARKS_CONFIG_DIR}/sparks.conf"
+  # personas dir not created
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports missing personas dir" "$output" "[missing]"
+  _assert_contains "suggests personas mkdir" "$output" "personas"
+  _cleanup_tmpenv
+
+  _section "status - missing sparks.conf"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  mkdir -p "${SPARKS_CONFIG_DIR}/personas"
+  # sparks.conf not created
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports missing sparks.conf" "$output" "[missing]"
+  _assert_contains "suggests touch sparks.conf" "$output" "sparks.conf"
+  _cleanup_tmpenv
+
+  _section "status - @sparks missing from plugins.conf"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  # SPARKS_PLUGINS_CONF points to a non-existent file in tmpenv
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports missing @sparks" "$output" "[missing]"
+  _assert_contains "suggests @sparks" "$output" "@sparks"
+  _cleanup_tmpenv
+
+  _section "status - @sparks present in plugins.conf"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  echo "@sparks" > "${SPARKS_PLUGINS_CONF}"
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports ok for @sparks" "$output" "[ok]"
+  if [[ "$output" != *"@sparks not found"* ]]; then
+    _ok "@sparks not flagged as missing"
+  else
+    _fail "@sparks incorrectly flagged as missing"
+  fi
+  _cleanup_tmpenv
+
+  _section "status - gemini settings missing"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  # SPARKS_GEMINI_SETTINGS points to non-existent file
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports missing gemini config" "$output" "[missing]"
+  _assert_contains "suggests context.fileName" "$output" "context.fileName"
+  _cleanup_tmpenv
+
+  _section "status - gemini settings missing context.fileName"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  printf '{"theme":"dark"}\n' > "${SPARKS_GEMINI_SETTINGS}"
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports missing context.fileName" "$output" "[missing]"
+  _cleanup_tmpenv
+
+  _section "status - gemini fully configured"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  printf '{"context":{"fileName":["AGENTS.md","GEMINI.md"]}}\n' > "${SPARKS_GEMINI_SETTINGS}"
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  _assert_contains "reports ok for gemini" "$output" "[ok]"
+  if [[ "$output" != *"context.fileName not found"* ]]; then
+    _ok "gemini not flagged when configured"
+  else
+    _fail "gemini incorrectly flagged as missing"
+  fi
+  _cleanup_tmpenv
+
+  _section "status - all ok"
+  _make_tmpenv
+  bash "$INSTALLER" >/dev/null 2>&1
+  mkdir -p "${SPARKS_CONFIG_DIR}/personas"
+  touch "${SPARKS_CONFIG_DIR}/sparks.conf"
+  echo "@sparks" > "${SPARKS_PLUGINS_CONF}"
+  printf '{"context":{"fileName":["AGENTS.md","GEMINI.md"]}}\n' > "${SPARKS_GEMINI_SETTINGS}"
+  output="$(bash "$INSTALLER" --status 2>&1)"
+  exit_code=$?
+  _assert_exit "status exits 0 when all ok" "$exit_code" "0"
+  if [[ "$output" != *"[missing]"* && "$output" != *"[drift]"* && "$output" != *"[warn]"* ]]; then
+    _ok "no issues reported when fully configured"
+  else
+    _fail "unexpected issues reported: $output"
+  fi
+  _cleanup_tmpenv
+}
+
 _summary

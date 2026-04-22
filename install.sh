@@ -120,7 +120,108 @@ _suggest_gemini() {
   fi
 }
 
-_cmd_status() { echo "[status] not yet implemented"; }
+# Global issue counter used by _status_* helpers.
+# Avoids bash 4.3+ namerefs (macOS ships bash 3.2).
+_status_issues=0
+
+_cmd_status() {
+  _status_issues=0
+
+  # Check 1: install dir
+  if [[ -d "$INSTALL_DIR" ]]; then
+    echo "[ok]     install dir exists: $INSTALL_DIR"
+  else
+    echo "[missing] install dir not found: $INSTALL_DIR"
+    echo "         run: ./install.sh"
+    _status_issues=$(( _status_issues + 1 ))
+    _status_config
+    _status_plugins_conf
+    _status_gemini
+    [[ "$_status_issues" -eq 0 ]] && return 0 || return 1
+  fi
+
+  # Check 2: VERSION stamp + drift
+  local version_file="${INSTALL_DIR}/VERSION"
+  if [[ ! -f "$version_file" ]]; then
+    echo "[warn]   no VERSION stamp in install dir"
+    echo "         run: ./install.sh"
+    _status_issues=$(( _status_issues + 1 ))
+  else
+    local installed_commit dev_commit
+    installed_commit="$(grep '^commit=' "$version_file" | cut -d= -f2)"
+    dev_commit="$(_get_dev_commit)"
+
+    echo "[ok]     VERSION stamp present (installed commit: ${installed_commit:-unknown})"
+
+    if [[ "$dev_commit" == "unknown" ]]; then
+      echo "[warn]   could not read dev clone git commit — cannot check drift"
+      _status_issues=$(( _status_issues + 1 ))
+    elif [[ "$installed_commit" == "$dev_commit" ]]; then
+      echo "[ok]     install is current (${dev_commit:0:8})"
+    else
+      echo "[drift]  install=${installed_commit:0:8}, dev=${dev_commit:0:8}"
+      echo "         run: ./install.sh"
+      _status_issues=$(( _status_issues + 1 ))
+    fi
+  fi
+
+  _status_config
+  _status_plugins_conf
+  _status_gemini
+
+  [[ "$_status_issues" -eq 0 ]] && return 0 || return 1
+}
+
+_status_config() {
+  if [[ ! -d "$CONFIG_DIR" ]]; then
+    echo "[missing] config dir not found: $CONFIG_DIR"
+    echo "         run: mkdir -p ${CONFIG_DIR}/personas && touch ${CONFIG_DIR}/sparks.conf"
+    _status_issues=$(( _status_issues + 1 ))
+    return
+  fi
+  echo "[ok]     config dir exists: $CONFIG_DIR"
+
+  if [[ ! -d "${CONFIG_DIR}/personas" ]]; then
+    echo "[missing] personas dir not found: ${CONFIG_DIR}/personas"
+    echo "         run: mkdir -p ${CONFIG_DIR}/personas"
+    _status_issues=$(( _status_issues + 1 ))
+  else
+    echo "[ok]     personas dir exists"
+  fi
+
+  if [[ ! -f "${CONFIG_DIR}/sparks.conf" ]]; then
+    echo "[missing] sparks.conf not found: ${CONFIG_DIR}/sparks.conf"
+    echo "         run: touch ${CONFIG_DIR}/sparks.conf"
+    _status_issues=$(( _status_issues + 1 ))
+  else
+    echo "[ok]     sparks.conf exists"
+  fi
+}
+
+_status_plugins_conf() {
+  if [[ -f "$PLUGINS_CONF" ]] && grep -q "^@sparks" "$PLUGINS_CONF" 2>/dev/null; then
+    echo "[ok]     @sparks in ${PLUGINS_CONF}"
+  else
+    echo "[missing] @sparks not found in ${PLUGINS_CONF}"
+    echo "         run: echo '@sparks' >> ${PLUGINS_CONF}"
+    _status_issues=$(( _status_issues + 1 ))
+  fi
+}
+
+_status_gemini() {
+  if [[ -f "$GEMINI_SETTINGS" ]] && grep -q '"fileName"' "$GEMINI_SETTINGS" 2>/dev/null; then
+    echo "[ok]     gemini context.fileName configured in ${GEMINI_SETTINGS}"
+  else
+    echo "[missing] context.fileName not found in ${GEMINI_SETTINGS}"
+    echo "         add to ${GEMINI_SETTINGS}:"
+    echo '           {'
+    echo '             "context": {'
+    echo '               "fileName": ["AGENTS.md", "GEMINI.md"]'
+    echo '             }'
+    echo '           }'
+    _status_issues=$(( _status_issues + 1 ))
+  fi
+}
 
 # Allow sourcing for testing without executing commands
 [[ "${1:-}" == "--_source-only" ]] && return 0 2>/dev/null || true
