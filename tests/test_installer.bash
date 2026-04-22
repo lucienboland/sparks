@@ -79,4 +79,35 @@ _cleanup_tmpenv() {
   unset SPARKS_INSTALL_DIR SPARKS_CONFIG_DIR SPARKS_PLUGINS_CONF SPARKS_GEMINI_SETTINGS _TMPENV_ROOT
 }
 
+_should_run "help" && {
+  _section "help"
+
+  _make_tmpenv
+  output="$(bash "$INSTALLER" --help 2>&1)"
+  exit_code=$?
+  _assert_exit "--help exits 0" "$exit_code" "0"
+  _assert_contains "--help mentions usage" "$output" "Usage:"
+  _assert_contains "--help mentions --status" "$output" "--status"
+  _cleanup_tmpenv
+}
+
+_should_run "commit" && {
+  _section "commit detection"
+
+  _make_tmpenv
+  commit="$(
+    SPARKS_INSTALL_DIR="${SPARKS_INSTALL_DIR}"
+    SPARKS_CONFIG_DIR="${SPARKS_CONFIG_DIR}"
+    SPARKS_PLUGINS_CONF="${SPARKS_PLUGINS_CONF}"
+    SPARKS_GEMINI_SETTINGS="${SPARKS_GEMINI_SETTINGS}"
+    bash -c "source '$INSTALLER' --_source-only 2>/dev/null; _get_dev_commit" 2>/dev/null
+  )"
+  if [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || [[ "$commit" == "unknown" ]]; then
+    _ok "commit is valid hex or unknown: $commit"
+  else
+    _fail "commit has unexpected format: '$commit'"
+  fi
+  _cleanup_tmpenv
+}
+
 _summary
