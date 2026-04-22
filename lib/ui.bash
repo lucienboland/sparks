@@ -52,6 +52,9 @@ _SPARKS_C_LOGO_LAVEN=$'\033[38;5;141m'
 # The spark icon — *.+ with logo triad colours (compact, for inline banner use)
 _SPARKS_ICON="${_SPARKS_C_LOGO_PINK}*${_SPARKS_C_LOGO_CYAN}.${_SPARKS_C_LOGO_LAVEN}+${_SPARKS_C_RESET}"
 
+# Per-letter colored SPARKS label for banner (S=pink P=cyan A=lav R=pink K=cyan S=lav)
+_SPARKS_LABEL="${_SPARKS_C_LOGO_PINK}S${_SPARKS_C_LOGO_CYAN}P${_SPARKS_C_LOGO_LAVEN}A${_SPARKS_C_LOGO_PINK}R${_SPARKS_C_LOGO_CYAN}K${_SPARKS_C_LOGO_LAVEN}S${_SPARKS_C_RESET}"
+
 # Single-line logo — *.+ SPARKS -- Persona Manager (for standalone header displays)
 # SPARKS letter colours cycle per-letter: S=pink P=cyan A=lav R=pink K=cyan S=lav
 _SPARKS_LOGO_LINE="${_SPARKS_C_LOGO_PINK}*${_SPARKS_C_LOGO_CYAN}.${_SPARKS_C_LOGO_LAVEN}+${_SPARKS_C_RESET}  ${_SPARKS_C_LOGO_PINK}S${_SPARKS_C_LOGO_CYAN}P${_SPARKS_C_LOGO_LAVEN}A${_SPARKS_C_LOGO_PINK}R${_SPARKS_C_LOGO_CYAN}K${_SPARKS_C_LOGO_LAVEN}S${_SPARKS_C_RESET} ${_SPARKS_C_DIM}--${_SPARKS_C_RESET} ${_SPARKS_C_LOGO_CYAN}Persona${_SPARKS_C_RESET} ${_SPARKS_C_LOGO_LAVEN}Manager${_SPARKS_C_RESET}"
@@ -120,13 +123,13 @@ _sparks_banner() {
         fi
       done
       if (( any_stale )); then
-        stale_hint=" ${_SPARKS_C_YELLOW}[stale — run: sparks apply]${_SPARKS_C_RESET}"
+        stale_hint=" ${_SPARKS_C_YELLOW}[stale — run: ${_SPARKS_C_LOGO_CYAN}sparks apply${_SPARKS_C_YELLOW}]${_SPARKS_C_RESET}"
       fi
     fi
   fi
 
-  printf '%b sparks: %s  %s%s\n' \
-    "${_SPARKS_ICON}" "${persona_str}" "${source_hint}" "${stale_hint}"
+  printf '%b %b: %s  %s%s\n' \
+    "${_SPARKS_ICON}" "${_SPARKS_LABEL}" "${persona_str}" "${source_hint}" "${stale_hint}"
 }
 
 # ---------------------------------------------------------------------------
@@ -282,23 +285,23 @@ _sparks_status() {
 
       if _sparks_adapter_check_stale "${adapter}" "${target_dir}" "${dir}"; then
         if [[ ! -f "${target_file}" ]]; then
-          printf '    %b○%b  %-38s  %b[not yet created — run: sparks apply]%b\n' \
+          printf '    %b○%b  %-38s  %b[not yet created — run: %bsparks apply%b]%b\n' \
             "${_SPARKS_C_GREY}" "${_SPARKS_C_RESET}" \
             "${display_path}" \
-            "${_SPARKS_C_GREY}" "${_SPARKS_C_RESET}"
+            "${_SPARKS_C_GREY}" "${_SPARKS_C_LOGO_CYAN}" "${_SPARKS_C_GREY}" "${_SPARKS_C_RESET}"
         else
           # Bootstrap adapters have their own _is_stale fn (no sentinel)
           local is_stale_fn="_sparks_adapter_${adapter}_is_stale"
           if declare -f "${is_stale_fn}" &>/dev/null; then
-            printf '    %b!%b  %-38s  %b[not set up — run: sparks apply]%b\n' \
+            printf '    %b!%b  %-38s  %b[not set up — run: %bsparks apply%b]%b\n' \
               "${_SPARKS_C_YELLOW}" "${_SPARKS_C_RESET}" \
               "${display_path}" \
-              "${_SPARKS_C_YELLOW}" "${_SPARKS_C_RESET}"
+              "${_SPARKS_C_YELLOW}" "${_SPARKS_C_LOGO_CYAN}" "${_SPARKS_C_YELLOW}" "${_SPARKS_C_RESET}"
           else
-            printf '    %b!%b  %-38s  %b[stale — run: sparks apply]%b\n' \
+            printf '    %b!%b  %-38s  %b[stale — run: %bsparks apply%b]%b\n' \
               "${_SPARKS_C_YELLOW}" "${_SPARKS_C_RESET}" \
               "${display_path}" \
-              "${_SPARKS_C_YELLOW}" "${_SPARKS_C_RESET}"
+              "${_SPARKS_C_YELLOW}" "${_SPARKS_C_LOGO_CYAN}" "${_SPARKS_C_YELLOW}" "${_SPARKS_C_RESET}"
           fi
         fi
       else
