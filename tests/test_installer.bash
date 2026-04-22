@@ -42,8 +42,19 @@ _summary() {
 # ---------------------------------------------------------------------------
 # Section filter (-s <name>)
 # ---------------------------------------------------------------------------
-_run_section="${2-}"
-if [[ "${1-}" == "-s" ]]; then _run_section="${2-}"; fi
+_run_section=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -s|--section) _run_section="${2-}"; shift 2 ;;
+    -h|--help)
+      printf "Usage: %s [-s|--section NAME]\n" "$0"
+      exit 0
+      ;;
+    *) printf "Unknown option: %s\n" "$1" >&2; exit 1 ;;
+  esac
+done
+
 _should_run() { [[ -z "$_run_section" || "$_run_section" == "$1" ]]; }
 
 # ---------------------------------------------------------------------------
@@ -64,7 +75,7 @@ _make_tmpenv() {
 }
 
 _cleanup_tmpenv() {
-  rm -rf "$_TMPENV_ROOT"
+  [[ -n "${_TMPENV_ROOT:-}" ]] && rm -rf "$_TMPENV_ROOT"
   unset SPARKS_INSTALL_DIR SPARKS_CONFIG_DIR SPARKS_PLUGINS_CONF SPARKS_GEMINI_SETTINGS _TMPENV_ROOT
 }
 
