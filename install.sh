@@ -48,7 +48,78 @@ _get_dev_commit() {
   fi
 }
 
-_cmd_deploy() { echo "[deploy] not yet implemented"; }
+_cmd_deploy() {
+  local commit deployed_at
+
+  # Safety: refuse to deploy to self
+  if [[ "$(realpath "$SCRIPT_DIR")" == "$(realpath "$INSTALL_DIR" 2>/dev/null || echo "__none__")" ]]; then
+    echo "Cannot deploy: source and install dir are the same path: $SCRIPT_DIR" >&2
+    return 1
+  fi
+
+  commit="$(_get_dev_commit)"
+  if [[ "$commit" == "unknown" ]]; then
+    echo "[warn]   could not read git commit from dev clone — VERSION will show 'unknown'"
+  fi
+
+  echo "[deploy] source: $SCRIPT_DIR (commit: $commit)"
+  echo "[deploy] target: $INSTALL_DIR"
+  echo "[deploy] syncing framework files..."
+
+  mkdir -p "$INSTALL_DIR"
+
+  rsync -a --delete \
+    --exclude='.git/' \
+    --exclude='.gitignore' \
+    --exclude='tests/' \
+    --exclude='docs/' \
+    --exclude='install.sh' \
+    --exclude='AGENTS.md' \
+    --exclude='README.md' \
+    --exclude='INSTALL.md' \
+    "${SCRIPT_DIR}/" "${INSTALL_DIR}/"
+
+  deployed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  printf 'commit=%s\ndeployed_at=%s\n' "$commit" "$deployed_at" \
+    > "${INSTALL_DIR}/VERSION"
+
+  echo "[deploy] done. VERSION stamp written."
+  echo
+
+  _suggest_config
+  _suggest_plugins_conf
+  _suggest_gemini
+}
+
+_suggest_config() {
+  if [[ ! -d "$CONFIG_DIR" ]]; then
+    echo "[suggest] ${CONFIG_DIR} not found. To scaffold your config directory:"
+    echo "    mkdir -p ${CONFIG_DIR}/personas"
+    echo "    touch ${CONFIG_DIR}/sparks.conf"
+    echo
+  fi
+}
+
+_suggest_plugins_conf() {
+  if [[ ! -f "$PLUGINS_CONF" ]] || ! grep -q "^@sparks" "$PLUGINS_CONF" 2>/dev/null; then
+    echo "[suggest] @sparks not found in ${PLUGINS_CONF}. Add:"
+    echo "    echo '@sparks' >> ${PLUGINS_CONF}"
+    echo
+  fi
+}
+
+_suggest_gemini() {
+  if [[ ! -f "$GEMINI_SETTINGS" ]] || ! grep -q '"fileName"' "$GEMINI_SETTINGS" 2>/dev/null; then
+    echo "[suggest] context.fileName not found in ${GEMINI_SETTINGS}. Add:"
+    echo '    {'
+    echo '      "context": {'
+    echo '        "fileName": ["AGENTS.md", "GEMINI.md"]'
+    echo '      }'
+    echo '    }'
+    echo
+  fi
+}
+
 _cmd_status() { echo "[status] not yet implemented"; }
 
 # Allow sourcing for testing without executing commands
